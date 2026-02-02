@@ -17,7 +17,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 
                 {import.meta.env.DEV && (
                     <pre className="bg-slate-900 p-3 rounded text-xs text-red-400 overflow-auto mb-4">
-                        {error.message}
+                        {(error as any).message}
                     </pre>
                 )}
 

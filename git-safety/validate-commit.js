@@ -90,7 +90,8 @@ async function main() {
 
         const rl = readline.createInterface({
             input: inputStream,
-            output: outputStream
+            output: outputStream,
+            terminal: true // Force TTY behavior for proper line reading
         });
 
         const askQuestion = (query) => new Promise(resolve => rl.question(query, resolve));
