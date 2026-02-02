@@ -199,3 +199,52 @@ git push origin feature/my-feature
 # Create PR on GitHub
 # feature/my-feature → dev
 ```
+
+## 🤝 Sharing & Customization for Other Teams
+
+If you want to share this tool with a friend or team who uses a **different branching strategy**, they will need to customize the rules.
+
+### Important: What to Share
+The VS Code extension depends on the `safety-platform` backend and Git hooks. Your friend needs to:
+1.  **Clone the Repository** (or copy the `safety-platform` folder).
+2.  **Install Dependencies** (`npm install` in both `server/` and `git-safety/`).
+3.  **Setup Environment Variables** (Create `.env` files with their own keys).
+
+### How to Customize Rules
+The logic for accepting/rejecting pushes is found in:
+`safety-platform/git-safety/validate-push.js`
+
+To change the strategy (e.g., to allow direct pushes to `dev`), edit the `// --- BRANCHING RULES ---` section:
+
+**Example: Allowing Feature -> Main (Simple GitHub Flow)**
+If they don't use Release branches and want to merge features directly to main:
+
+1.  Open `safety-platform/git-safety/validate-push.js`.
+2.  Find the "Block feature/* -> main" rule.
+3.  Change it to **ALLOW** or delete the block completely.
+
+```javascript
+// Change THIS:
+if (sourceBranch.startsWith('feature/') && targetBranch === 'main') {
+    // ... BLOCKED logic ...
+}
+
+// To THIS (Allowing it):
+else if (sourceBranch.startsWith('feature/') && targetBranch === 'main') {
+     console.log(`${C.Blue}║${C.Reset}  ${C.Green}✅ ALLOWED${C.Reset} Feature PR to main.`);
+}
+```
+
+### Customizing the AI Persona
+You can also change what the AI recommends by editing the `system` prompt in the same file:
+
+```javascript
+messages: [
+    {
+        role: 'system',
+        content: 'You are a helpful Git Safety Bot... Always recommend this specific flow: [INSERT THEIR FLOW HERE]'
+    },
+    // ...
+]
+```
+Changing this string ensures the AI gives advice matching *their* specific team rules.

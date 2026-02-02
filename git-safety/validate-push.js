@@ -11,40 +11,71 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+// ANSI Colors & Styles
+const C = {
+    Reset: "\x1b[0m",
+    Bright: "\x1b[1m",
+    Dim: "\x1b[2m",
+    Red: "\x1b[31m",
+    Green: "\x1b[32m",
+    Yellow: "\x1b[33m",
+    Blue: "\x1b[34m",
+    Cyan: "\x1b[36m",
+    White: "\x1b[37m",
+    BgRed: "\x1b[41m",
+};
+
+// Helper to exit cleanly on Windows (prevents UV_HANDLE_CLOSING assertion failed)
+function safeExit(code) {
+    // Add a small delay to allow stdout/stderr pipes to flush fully on Windows
+    setTimeout(() => {
+        process.exit(code);
+    }, 500);
+}
+
 async function getAIExplanation(violation) {
     try {
-        console.log('\n🤖 Asking AI Safety Bot for guidance...\n');
-        // Using a short timeout to prevent hanging if API is slow
+        console.log(`\n${C.Cyan}${C.Bright}🤖  ASKING AI SAFETY BOT...${C.Reset}\n`);
+
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+        const timeout = setTimeout(() => controller.abort(), 15000);
 
         const response = await openai.chat.completions.create({
             model: 'gpt-4o',
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a helpful Git Safety Bot. Explain why a specific branching rule violation is dangerous. Be concise.'
+                    content: 'You are a helpful Git Safety Bot. Explain why a specific branching rule violation is dangerous. Be concise. Always recommend this specific flow: Feature/* -> Release/* -> Main. Format your response with clear headings or bullet points if needed.'
                 },
                 {
                     role: 'user',
                     content: `Explain why this is a problem and what to do instead: ${violation}`
                 }
             ],
-            max_tokens: 150
+            max_tokens: 250
         }, { signal: controller.signal });
 
         clearTimeout(timeout);
 
         const explanation = response.choices[0].message.content.trim();
-        console.log('--------- 🤖 AI Safety Bot ---------');
-        console.log(explanation);
-        console.log('------------------------------------\n');
+
+        // Beautified Box Output
+        console.log(`${C.Cyan}╔════════════════════════════════════════════════════════════╗${C.Reset}`);
+        console.log(`${C.Cyan}║                  🤖 AI SAFETY BOT ADVICE                   ║${C.Reset}`);
+        console.log(`${C.Cyan}╠════════════════════════════════════════════════════════════╣${C.Reset}`);
+
+        // Split explanation by newlines to print neatly
+        explanation.split('\n').forEach(line => {
+            console.log(`${C.Cyan}║${C.Reset}  ${line}`);
+        });
+
+        console.log(`${C.Cyan}╚════════════════════════════════════════════════════════════╝${C.Reset}\n`);
 
     } catch (error) {
         if (error.name === 'AbortError') {
-            console.log('⚠️  AI Safety Bot timed out.');
+            console.log(`${C.Yellow}⚠️  AI Safety Bot timed out.${C.Reset}`);
         } else {
-            console.log('⚠️  Could not reach AI Safety Bot (continuing with block message)\n');
+            console.log(`${C.Yellow}⚠️  Could not reach AI Safety Bot: ${error.message}${C.Reset}\n`);
         }
     }
 }
@@ -56,13 +87,14 @@ async function main() {
 
     // If no input (e.g. running manually without pipe), fall back to git command or exit
     if (!input) {
-        // Fallback for manual testing or weird git clients
-        // existing logic could go here, but for pre-push stdin is standard
-        process.exit(0);
+        safeExit(0);
     }
 
     const lines = input.split('\n');
     let hasError = false;
+
+    // Header
+    console.log(`\n${C.Blue}╔═══════════════════ GIT SAFETY PLATFORM ══════════════════╗${C.Reset}`);
 
     for (const line of lines) {
         if (!line.trim()) continue;
@@ -72,54 +104,51 @@ async function main() {
         const sourceBranch = localRef.replace('refs/heads/', '');
         const targetBranch = remoteRef.replace('refs/heads/', '');
 
-        console.log(`\n📋 Validating Push: ${sourceBranch} ➜ ${targetBranch}`);
+        console.log(`${C.Blue}║${C.Reset}  Validating: ${C.Yellow}${sourceBranch}${C.Reset} ➜ ${C.Yellow}${targetBranch}${C.Reset}`);
 
         // --- BRANCHING RULES ---
 
         // 1. Block feature/* -> main
         if (sourceBranch.startsWith('feature/') && targetBranch === 'main') {
-            console.log(`\n❌ BLOCKED: Feature branch '${sourceBranch}' cannot be pushed directly to 'main'.`);
+            console.log(`${C.Blue}╠════════════════════════════════════════════════════════════╣${C.Reset}`);
+            console.log(`${C.Blue}║${C.Reset}  ${C.BgRed}${C.White} ⛔ BLOCKED ${C.Reset} Feature branch cannot go directly to 'main'.`);
             await getAIExplanation("Pushing a feature branch directly to main. It should go to a release branch first.");
             hasError = true;
         }
 
         // 2. Block direct pushes to main (unless from release/*)
         else if (targetBranch === 'main' && !sourceBranch.startsWith('release/')) {
-            console.log(`\n❌ BLOCKED: Direct push to 'main' from '${sourceBranch}' is restricted.`);
+            console.log(`${C.Blue}╠════════════════════════════════════════════════════════════╣${C.Reset}`);
+            console.log(`${C.Blue}║${C.Reset}  ${C.BgRed}${C.White} ⛔ BLOCKED ${C.Reset} Direct push to 'main' is restricted.`);
             await getAIExplanation(`Direct push to main from ${sourceBranch}. Only release branches can be pushed/merged to main.`);
             hasError = true;
         }
 
-        // 3. Block feature/* -> anything OTHER than release/* or feature/* (Generic safety)
-        // (Optional strictness, but let's stick to user request: Feature -> Release allowed)
-        // User said: "feature to main block, feature to release allow"
-
-        // 4. Validate release/* -> main (Allowed, checking just in case of other rules)
         else if (sourceBranch.startsWith('release/') && targetBranch === 'main') {
-            console.log(`✅ Allowed: Promoting release '${sourceBranch}' to 'main'.`);
+            console.log(`${C.Blue}║${C.Reset}  ${C.Green}✅ ALLOWED${C.Reset} Promoting release to main.`);
         }
 
         else if (sourceBranch.startsWith('feature/') && targetBranch.startsWith('release/')) {
-            console.log(`✅ Allowed: Merging feature '${sourceBranch}' into release '${targetBranch}'.`);
+            console.log(`${C.Blue}║${C.Reset}  ${C.Green}✅ ALLOWED${C.Reset} Merging feature into release.`);
         }
 
         else if (sourceBranch === targetBranch && (sourceBranch.startsWith('feature/') || sourceBranch.startsWith('bugfix/'))) {
-            // Allow updating own feature branch
-            console.log(`✅ Allowed: Updating feature branch '${sourceBranch}'.`);
+            console.log(`${C.Blue}║${C.Reset}  ${C.Green}✅ ALLOWED${C.Reset} Updating feature branch.`);
         }
 
         else if (targetBranch === 'main') {
-            // Catch-all for main protection
-            console.log(`\n❌ BLOCKED: Unknown branch '${sourceBranch}' trying to push to 'main'.`);
+            console.log(`${C.Blue}╠════════════════════════════════════════════════════════════╣${C.Reset}`);
+            console.log(`${C.Blue}║${C.Reset}  ${C.BgRed}${C.White} ⛔ BLOCKED ${C.Reset} Unknown branch pushing to 'main'.`);
             hasError = true;
         }
     }
 
+    console.log(`${C.Blue}╚════════════════════════════════════════════════════════════╝${C.Reset}\n`);
+
     if (hasError) {
-        console.log('⛔ Push rejected by Safety Platform.');
-        process.exit(1);
+        safeExit(1);
     } else {
-        process.exit(0);
+        safeExit(0);
     }
 }
 
