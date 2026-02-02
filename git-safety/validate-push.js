@@ -45,7 +45,17 @@ async function getAIExplanation(violation) {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a helpful Git Safety Bot. Explain why a specific branching rule violation is dangerous. Be concise. Always recommend this specific flow: Feature/* -> Release/* -> Main. Format your response with clear headings or bullet points if needed.'
+                    content: (() => {
+                        const personas = [
+                            "You are a strict Git Safety Bot. Warn about stability risks in 1 short sentence.",
+                            "You are a wise Software Architect. Briefly explain the 'why' using a simple analogy.",
+                            "You are a DevOps Guardian. Warn about breaking the CI/CD pipeline and blocking teammates.",
+                            "You are a Code Quality Auditor. Mention the risk of technical debt and unreviewed code.",
+                            "You are a helpful Mentor. Gently correct the mistake and explain the benefit of the process."
+                        ];
+                        const selected = personas[Math.floor(Math.random() * personas.length)];
+                        return `${selected} Then, strictly show the correct flow: "Use Feature -> Release -> Main". Keep it under 3 lines total.`;
+                    })()
                 },
                 {
                     role: 'user',

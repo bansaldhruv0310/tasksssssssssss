@@ -62,6 +62,18 @@ async function main() {
         process.exit(0); // Allow commit if we can't determine branch
     }
 
+
+    // --- CHECK 0: BLOCK CHERRY-PICK ---
+    try {
+        const gitDir = execSync('git rev-parse --git-dir').toString().trim();
+        const cherryPickHead = require('path').join(gitDir, 'CHERRY_PICK_HEAD');
+        if (require('fs').existsSync(cherryPickHead)) {
+            console.log('\n❌ BLOCKED: Cherry-picking is restricted in this repository!');
+            await getAIExplanation("User tried to git cherry-pick. This is disabled to prevent history fragmentation.");
+            process.exit(1);
+        }
+    } catch (e) { }
+
     console.log(`\n📋 Branch: ${currentBranch}`);
 
 

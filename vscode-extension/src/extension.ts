@@ -8,7 +8,7 @@ export function activate(context: vscode.ExtensionContext) {
     const sidebarProvider = new SidebarProvider(context.extensionUri);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
-            "safety-platform-sidebar", // Must match package.json view ID
+            "safety-platform.chatView", // Must match package.json view ID
             sidebarProvider
         )
     );
